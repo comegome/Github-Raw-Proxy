@@ -25,45 +25,60 @@
 ## 🚀 部署方法
 
 > [!IMPORTANT]
+> **部署成功后这个 Worker 没有对外地址，必须先绑定你自己的域名才能访问。**
+> `wrangler.toml` 里已经写了 `workers_dev = false` + `preview_urls = false`：默认地址 `<name>.<你的子域>.workers.dev` 和每个版本的预览地址都是关闭的。原因是这个端点没有客户端鉴权 —— **地址就是凭据**，所以默认不对外暴露。
+
+> [!IMPORTANT]
 > **Cloudflare 侧的 Worker 名字，必须和本仓库 `wrangler.toml` 里的 `name` 完全一致。**
 > Cloudflare 在每次构建前都会核对这两处；不一致会被判为构建失败，并自动在你的仓库里开一个 PR 把 `name` 改成 Cloudflare 上的名字 —— 只有合并那个 PR 之后才会重新构建。
 > 本仓库当前的 `name` 是 `github-raw-proxy`。要改名请两边一起改：
 >
 > - **改仓库侧**：修改 `wrangler.toml` 的 `name`，推送
-> - **改 Cloudflare 侧**：进入该 Worker → **设置 → 重命名**（重命名会一并换掉默认地址）
+> - **改 Cloudflare 侧**：进入该 Worker → **设置 → 重命名**
 >
-> 名字同时就是默认地址 `<name>.<你的子域>.workers.dev`，所以还必须满足 DNS 标签规则：**不超过 63 个字符，只能用字母、数字和短横线，且不能以短横线开头或结尾**。
+> 名字必须满足 DNS 标签规则：**不超过 63 个字符，只能用字母、数字和短横线，且不能以短横线开头或结尾**。
 
-### 方式一：Cloudflare Dashboard（最快）
+**方式一：Cloudflare Dashboard（最快）**
 
 1. Cloudflare 控制台 → **Workers & Pages** → **创建** → **Worker**
 2. 名字填成与 `wrangler.toml` 相同的 `github-raw-proxy`（或你自己改定的那个名字），点部署
 3. 进入该 Worker → **编辑代码**，把本仓库 `_worker.js` 的内容整段粘贴进去 → 部署
 4. 进入 **设置 → 环境变量**，按下表添加变量 → 保存
-5. 访问 `https://<你的域名>/<分支>/<仓库内路径>` 验证
+5. 关掉默认地址：**设置 → 域和路由**，在 `workers.dev` 那一行点「禁用」
+   （这种方式不使用 `wrangler.toml`，所以上面那条 `workers_dev = false` 不会生效，只能手动关）
+6. 按下面的「绑定域名」绑好域名，再访问验证
 
-### 方式二：连接本仓库（推送即自动部署）
+**方式二：连接本仓库（推送即自动部署）**
 
 Cloudflare 控制台 → **Workers & Pages** → **创建** → **导入 Git 仓库** → 选择本仓库。
 
-- **Worker 名字必须与 `wrangler.toml` 的 `name` 一致**（本仓库为 `github-raw-proxy`）—— 这就是上面那条要求的来源：Git 集成的构建正是按这个一致性校验的
+- **Worker 名字必须与 `wrangler.toml` 的 `name` 一致**（本仓库为 `github-raw-proxy`）—— 上面那条要求的来源就是这里
 - **构建命令**：留空
-- **部署命令**：用默认的 `npx wrangler deploy`（`wrangler.toml` 已配好 `main` / `keep_vars` / `[observability]`）
+- **部署命令**：用默认的 `npx wrangler deploy`（`wrangler.toml` 已配好 `main` / `keep_vars` / `workers_dev` / `preview_urls` / `[observability]`）
 
 之后每次 `git push` 都会自动部署；环境变量仍在 **设置 → 环境变量** 里配置。
 
-### 方式三：Wrangler CLI（本地）
+**方式三：Wrangler CLI（本地）**
 
 ```bash
 npm install -g wrangler
 wrangler login
-wrangler deploy                  # 读取同目录的 wrangler.toml，部署到 name 指定的 Worker
+wrangler deploy                  # 读取同目录的 wrangler.toml；关掉默认地址后会显示 "No targets deployed"，这是正常的
 wrangler secret put GH_TOKEN     # 加密存储；不要把 GH_TOKEN 写进 wrangler.toml
 wrangler secret put GH_NAME      # 也可以放 wrangler.toml 的 [vars]（它们不是机密）
 wrangler secret put GH_REPO
 ```
 
-用 CLI 时同一个道理：`wrangler deploy` 部署到 `wrangler.toml` 里 `name` 指定的那个 Worker。如果 Dashboard 上连的也是同名 Worker，两边就对上了；否则会**多出一个** Worker。
+### 绑定域名（三种方式都要做）
+
+在 Worker 的 **设置 → 域和路由 → 添加 → 自定义域** 里填一个你自己的、属于同一个 Cloudflare 账号的域名。绑定之后，对外地址就是它：
+
+```url
+https://raw.example.com/<分支>/<仓库内路径>
+```
+
+- **不绑域名就没有任何可用地址** —— 部署是成功的，只是访问不到（这是有意的）。
+- 想临时解禁默认地址来测试：把 `wrangler.toml` 的 `workers_dev` 改成 `true` 后推送；测完记得改回来，并把 `preview_urls` 一起调整，两者保持一致。
 
 > `wrangler.toml` 里的 `keep_vars = true` 必须保留：没有它，`wrangler deploy` 会清空你在 Dashboard 里设的环境变量。
 
@@ -111,7 +126,7 @@ https://<你的域名>/docs/a.txt           # 设了 GH_BRANCH 之后可以省�
 |--|--|
 | **限定仓库（`GH_NAME` + `GH_REPO`）** | 缺失时直接 500，不可能退化成「谁都能借它读任意仓库」的公开代理，也不存在用完整 URL 绕过限定的形态 |
 | **令牌用最小权限** | 即使地址泄漏，能读到的也只有那一个仓库（Fine-grained + 仅 `Contents: Read`） |
-| **不公开地址** | 抬高被撞见的门槛。注意：如果这份配置放在**公开仓库**里，`wrangler.toml` 里的 Worker 名字也是公开的，这一层只能算降低可见度 |
+| **默认没有公开地址** | `workers_dev` / `preview_urls` 默认关闭，所以不存在「猜到 `<名字>.<子域>.workers.dev` 就能用」这条路径；对外地址只有你自己绑定的域名 |
 | **能吊销** | 怀疑泄漏时立刻在 GitHub 吊销并更换令牌 |
 | **需要真正的访问控制** | 用 [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/) 在 Worker 前面加一层，而不是在代码里手搓令牌 |
 
@@ -120,6 +135,8 @@ https://<你的域名>/docs/a.txt           # 设了 GH_BRANCH 之后可以省�
 - **上游 CDN 缓存**：`raw.githubusercontent.com` 自己前面有一层 CDN，响应带 `cache-control: max-age=300`（本 Worker 原样透传）。所以分支被删、文件被改之后，**最多约 5 分钟内仍可能取到旧副本**。这是上游的陈旧副本，不是本 Worker 缓存，也不是安全漏洞。
 - **`?cb=时间戳` 之类的 query 无法绕过缓存**：raw 的缓存键是 `vary: Authorization, Accept-Encoding`，query string 不参与。
 - 要确认某个 ref 是否真的存在，请查 `github.com` 页面或 `api.github.com/repos/<owner>/<repo>/branches`，**不要拿 raw 的可取性当判据**。
+- **默认地址默认是关的**：`wrangler.toml` 设了 `workers_dev = false` + `preview_urls = false`。`preview_urls` 必须一起关 —— 只关 `workers_dev` 的话，每次部署仍会生成一个「可分享」的预览地址 `<版本前缀>-github-raw-proxy.<你的子域>.workers.dev`，Wrangler 会为此打印警告。
+- **不要在 `wrangler.toml` 里写 `routes` / `route`**：留空时，你在 Cloudflare 后台绑定的自定义域不会被部署覆盖；一旦写了 `routes`，路由就由配置接管，会把后台绑定的覆盖掉。
 - **不要把 `GH_TOKEN` 写进 `wrangler.toml`**：用 `wrangler secret put GH_TOKEN` 或 Dashboard 的加密变量。
 - 本 Worker 会连 `404` 一起透传上游的状态码，便于排错。
 

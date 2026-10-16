@@ -1,11 +1,19 @@
-# Worker 名称。默认地址是 <name>.<你的账号子域>.workers.dev。
-# 必须与 Cloudflare 侧的 Worker 名字一致，否则 Workers Builds 会判构建失败，
+# Worker 名称。必须与 Cloudflare 侧的 Worker 名字一致，否则 Workers Builds 会判构建失败，
 # 并自动开 PR 改这里（详见 README 的「部署方法」）。
 # 必须满足 DNS 标签规则：不超过 63 个字符、只能用字母数字和短横线、不能以短横线开头或结尾。
-# 注意：名字不是安全边界 —— 本仓库一旦公开，这个名字就是公开的。
 name = "github-raw-proxy"
 main = "_worker.js"
 compatibility_date = "2025-08-18"
+
+# 关闭默认地址。这个端点没有客户端鉴权、地址就是凭据，所以默认不对外暴露：
+# 部署后必须先绑自己的域名（见 README「部署方法 → 绑定域名」）才能访问。
+# preview_urls 必须一起关：只关 workers_dev 的话，每次部署仍会生成一个「可分享」的
+# 预览地址 <版本前缀>-<名字>.<子域>.workers.dev（Wrangler 会为此打印警告）。
+workers_dev = false
+preview_urls = false
+
+# 不要在本文件里写 routes / route：留空时，你在 Cloudflare 后台绑定的自定义域不会被部署覆盖；
+# 一旦写了 routes，路由就由配置接管，后台绑定的会被覆盖掉。
 
 # 必须保留：没有它，wrangler deploy 会清空你在 Dashboard 里设的环境变量
 # （GH_TOKEN / GH_NAME / GH_REPO / GH_BRANCH / URL / URL302 / ERROR）。
