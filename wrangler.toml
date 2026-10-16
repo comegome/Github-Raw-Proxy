@@ -1,6 +1,8 @@
 # Worker 名称。默认地址是 <name>.<你的账号子域>.workers.dev。
-# 端点没有客户端鉴权，「地址不公开」是主要补偿措施之一 ——
-# 所以这里用无规律的短名，请不要改成可猜的名字。
+# 必须与 Cloudflare 侧的 Worker 名字一致，否则 Workers Builds 会判构建失败，
+# 并自动开 PR 改这里（详见 README 的「部署方法」）。
+# 必须满足 DNS 标签规则：不超过 63 个字符、只能用字母数字和短横线、不能以短横线开头或结尾。
+# 注意：名字不是安全边界 —— 本仓库一旦公开，这个名字就是公开的。
 name = "github-raw-proxy"
 main = "_worker.js"
 compatibility_date = "2025-08-18"

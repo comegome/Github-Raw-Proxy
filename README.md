@@ -24,10 +24,20 @@
 
 ## 🚀 部署方法
 
+> [!IMPORTANT]
+> **Cloudflare 侧的 Worker 名字，必须和本仓库 `wrangler.toml` 里的 `name` 完全一致。**
+> Cloudflare 在每次构建前都会核对这两处；不一致会被判为构建失败，并自动在你的仓库里开一个 PR 把 `name` 改成 Cloudflare 上的名字 —— 只有合并那个 PR 之后才会重新构建。
+> 本仓库当前的 `name` 是 `github-raw-proxy`。要改名请两边一起改：
+>
+> - **改仓库侧**：修改 `wrangler.toml` 的 `name`，推送
+> - **改 Cloudflare 侧**：进入该 Worker → **设置 → 重命名**（重命名会一并换掉默认地址）
+>
+> 名字同时就是默认地址 `<name>.<你的子域>.workers.dev`，所以还必须满足 DNS 标签规则：**不超过 63 个字符，只能用字母、数字和短横线，且不能以短横线开头或结尾**。
+
 ### 方式一：Cloudflare Dashboard（最快）
 
 1. Cloudflare 控制台 → **Workers & Pages** → **创建** → **Worker**
-2. 起一个**不容易猜到**的名字（它会成为默认域名 `<name>.<你的子域>.workers.dev`），点部署
+2. 名字填成与 `wrangler.toml` 相同的 `github-raw-proxy`（或你自己改定的那个名字），点部署
 3. 进入该 Worker → **编辑代码**，把本仓库 `_worker.js` 的内容整段粘贴进去 → 部署
 4. 进入 **设置 → 环境变量**，按下表添加变量 → 保存
 5. 访问 `https://<你的域名>/<分支>/<仓库内路径>` 验证
@@ -35,19 +45,25 @@
 ### 方式二：连接本仓库（推送即自动部署）
 
 Cloudflare 控制台 → **Workers & Pages** → **创建** → **导入 Git 仓库** → 选择本仓库。
-构建命令留空、部署命令用默认的 `npx wrangler deploy`（`wrangler.toml` 已配好）。
-之后每次 `git push` 自动部署。环境变量仍在 **设置 → 环境变量** 里配置。
+
+- **Worker 名字必须与 `wrangler.toml` 的 `name` 一致**（本仓库为 `github-raw-proxy`）—— 这就是上面那条要求的来源：Git 集成的构建正是按这个一致性校验的
+- **构建命令**：留空
+- **部署命令**：用默认的 `npx wrangler deploy`（`wrangler.toml` 已配好 `main` / `keep_vars` / `[observability]`）
+
+之后每次 `git push` 都会自动部署；环境变量仍在 **设置 → 环境变量** 里配置。
 
 ### 方式三：Wrangler CLI（本地）
 
 ```bash
 npm install -g wrangler
 wrangler login
-wrangler deploy                  # 读取同目录的 wrangler.toml
+wrangler deploy                  # 读取同目录的 wrangler.toml，部署到 name 指定的 Worker
 wrangler secret put GH_TOKEN     # 加密存储；不要把 GH_TOKEN 写进 wrangler.toml
 wrangler secret put GH_NAME      # 也可以放 wrangler.toml 的 [vars]（它们不是机密）
 wrangler secret put GH_REPO
 ```
+
+用 CLI 时同一个道理：`wrangler deploy` 部署到 `wrangler.toml` 里 `name` 指定的那个 Worker。如果 Dashboard 上连的也是同名 Worker，两边就对上了；否则会**多出一个** Worker。
 
 > `wrangler.toml` 里的 `keep_vars = true` 必须保留：没有它，`wrangler deploy` 会清空你在 Dashboard 里设的环境变量。
 
@@ -118,18 +134,21 @@ https://<你的域名>/docs/a.txt           # 设了 GH_BRANCH 之后可以省�
 | `Method Not Allowed` | 405 | 只支持 `GET` / `HEAD` |
 | `服务器内部错误` | 500 | 未预期的错误，细节只写进 Worker 日志；响应头 `x-raw-error` 会带上错误类型名（不含堆栈） |
 
-## 🙏 感谢与许可
+## 🔀 与上游的差异
 
-本项目是 [cmliu/CF-Workers-Raw](https://github.com/cmliu/CF-Workers-Raw) 的修改版，
-感谢原作者 **[@cmliu](https://github.com/cmliu)**，以及上游致谢里提到的 ChatGPT 提供的最初思路。
-
-主要改动：
+本项目是 [cmliu/CF-Workers-Raw](https://github.com/cmliu/CF-Workers-Raw) 的修改版。行为**不兼容**之处：
 
 - 删除全部客户端鉴权（`?token=` 参数 / `TOKEN` / `TOKEN_PATH`），只保留服务端 `GH_TOKEN`
-- `GH_NAME` + `GH_REPO` 改为**必填**（fail-closed），删除「完整 raw URL」兼容分支
+- `GH_NAME` + `GH_REPO` 改为**必填**，缺失直接 500（上游不配置也能跑，但会变成一个公开代理）
+- 删除「完整 raw URL」兼容分支（上游可用它绕过仓库限定）
+- 只允许 `GET` / `HEAD`，透传 `Range` / 条件请求，修正 `304` / `204` / `205` 的空正文处理
 - 修复上游模块级 `let token` 造成的**跨请求令牌泄漏**
-- 只允许 `GET` / `HEAD`；透传 `Range` / 条件请求；修正 `304` / `204` / `205` 的空正文处理
 - 首页伪装分支不再转发调用方的请求头
 - 路径穿越防护改为逐字节解码，杜绝畸形编码掩护绕过
+
+## 🙏 感谢与许可
+
+本项目基于 [cmliu/CF-Workers-Raw](https://github.com/cmliu/CF-Workers-Raw) 修改，
+感谢原作者 **[@cmliu](https://github.com/cmliu)**，以及上游致谢里提到的 ChatGPT 提供的最初思路。
 
 上游以 **GPL-3.0** 发布，本项目同样以 **GPL-3.0** 发布，详见 [LICENSE](LICENSE)。
