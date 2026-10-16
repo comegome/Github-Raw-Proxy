@@ -1,0 +1,16 @@
+# Worker 名称。默认地址是 <name>.<你的账号子域>.workers.dev。
+# 端点没有客户端鉴权，「地址不公开」是主要补偿措施之一 ——
+# 所以这里用无规律的短名，请不要改成可猜的名字。
+name = "github-raw-proxy-jm25ze"
+main = "_worker.js"
+compatibility_date = "2025-08-18"
+
+# 必须保留：没有它，wrangler deploy 会清空你在 Dashboard 里设的环境变量
+# （GH_TOKEN / GH_NAME / GH_REPO / GH_BRANCH / URL / URL302 / ERROR）。
+# 令牌不要写进 [vars]：用 `wrangler secret put GH_TOKEN` 或 Dashboard 的加密变量。
+keep_vars = true
+
+# Workers Logs：handler 的 catch 分支用 console.error 记录原因，
+# 不开日志时 500 只能看到一个「服务器内部错误」。
+[observability]
+enabled = true
