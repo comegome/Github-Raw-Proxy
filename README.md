@@ -59,7 +59,10 @@ Cloudflare 控制台 → **Workers & Pages** → **创建** → **导入 Git 仓
 之后每次 `git push` 都会自动部署；环境变量仍在 **设置 → 环境变量** 里配置。
 
 > [!NOTE]
-> 如果出现「Git 连接显示正常，但推送后服务里的**构建列表一直是空的**、使用情况里的 **Workers 构建时间一直是 0 分钟**」——那是 Cloudflare 后端没有真的创建出构建触发器（已知问题，断开重连也可能无效，与你的配置无关）。此时请直接改用上面的**方式一：Dashboard 手动粘贴**。
+> 如果出现「Git 连接显示正常，但推送后服务里的**构建列表一直是空的**、使用情况里的 **Workers 构建时间一直是 0 分钟**」，通常是两种情况之一：
+> Cloudflare 后端没有真的创建出构建触发器（已知问题，断开重连也可能无效）；或者**你的账号被限制了 Workers Builds** ——
+> 在建应用页面会看到 *"Your account is blocked from using Workers Builds"*，这是账号级限制，重连和改名都无效，与你自己的配置无关。
+> 两种都由不得你配置，请改用**方式一（手动粘贴）**或**方式四（GitHub Actions）**。
 
 **方式三：Wrangler CLI（本地）**
 
@@ -72,7 +75,19 @@ wrangler secret put GH_NAME      # 也可以放 wrangler.toml 的 [vars]（它�
 wrangler secret put GH_REPO
 ```
 
-### 绑定域名（三种方式都要做）
+**方式四：GitHub Actions（仓库里已内置工作流）**
+
+本仓库带了一个 `.github/workflows/deploy.yml`：推送到 `main` 就自动部署。
+
+1. 在 Cloudflare 创建 API 令牌：**账户 API 令牌 → 创建令牌 → 模板选「编辑 Cloudflare Workers」**，作用域只选部署 Worker 的那个账户
+2. 在 GitHub 仓库 **Settings → Secrets and variables → Actions** 添加两个 secret：
+   - `CLOUDFLARE_API_TOKEN`：上一步创建的那个令牌
+   - `CLOUDFLARE_ACCOUNT_ID`：你的 Cloudflare 账户 ID
+3. 推送到 `main`（也可以在 Actions 页面手动点一次 **Run workflow**）
+
+它直接调用 Cloudflare 的 Workers 部署 API，**不经过 Workers Builds** —— 所以账号被限制使用 Workers Builds 时，这条路仍然可用。部署同样会应用 `wrangler.toml` 里的设置，也受 `keep_vars = true` 保护（Dashboard 里的变量不会被清空）。
+
+### 绑定域名（四种方式都要做）
 
 在 Worker 的 **设置 → 域和路由 → 添加 → 自定义域** 里填一个你自己的、属于同一个 Cloudflare 账号的域名。绑定之后，对外地址就是它：
 
