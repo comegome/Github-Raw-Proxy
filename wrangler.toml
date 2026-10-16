@@ -1,7 +1,7 @@
 # Worker 名称。默认地址是 <name>.<你的账号子域>.workers.dev。
 # 端点没有客户端鉴权，「地址不公开」是主要补偿措施之一 ——
 # 所以这里用无规律的短名，请不要改成可猜的名字。
-name = "github-raw-proxy-jm25ze"
+name = "github-raw-proxy"
 main = "_worker.js"
 compatibility_date = "2025-08-18"
 
