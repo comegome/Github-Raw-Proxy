@@ -1,5 +1,6 @@
 // GitHub-Raw-Proxy —— 用 Cloudflare Workers 访问 GitHub 私有仓库的 raw 文件
 //
+//
 // 设计要点（细节见 README）：
 //   * 令牌只存在于环境变量 GH_TOKEN 里：不写进 URL、不回给调用方、不打日志。
 //   * GH_NAME + GH_REPO 必填，缺失直接 500。请求路径一律拼在「用户名/仓库[/分支]」之后，
